@@ -1,0 +1,83 @@
+"""Constants for the MyHome component."""
+import logging
+
+LOGGER = logging.getLogger(__package__)
+DOMAIN = "bticino_myhome"
+STORAGE_VERSION = 1
+STORAGE_KEY = f"{DOMAIN}_config"
+
+ATTR_GATEWAY = "gateway"
+ATTR_MESSAGE = "message"
+ATTR_DURATION = "duration"
+ATTR_SCAN_LIGHTS = "scan_lights"
+ATTR_SCAN_COVERS = "scan_covers"
+ATTR_SCAN_CLIMATE = "scan_climate"
+ATTR_SCAN_POWER = "scan_power"
+ATTR_AREA_START = "area_start"
+ATTR_AREA_END = "area_end"
+ATTR_POINT_START = "point_start"
+ATTR_POINT_END = "point_end"
+ATTR_ENABLED = "enabled"
+ATTR_CLEAR = "clear"
+
+DISCOVERY_DEFAULT_AREA_START = 0
+DISCOVERY_DEFAULT_AREA_END = 0
+DISCOVERY_DEFAULT_POINT_START = 1
+DISCOVERY_DEFAULT_POINT_END = 15
+DISCOVERY_DEFAULT_DURATION = 8
+
+CONF = "config"
+CONF_ENTITY = "entity"
+CONF_ENTITIES = "entities"
+CONF_ENTITY_NAME = "entity_name"
+CONF_ICON = "icon"
+CONF_ICON_ON = "icon_on"
+CONF_PLATFORMS = "platforms"
+CONF_ADDRESS = "address"
+CONF_OWN_PASSWORD = "password"
+CONF_FIRMWARE = "firmware"
+CONF_SSDP_LOCATION = "ssdp_location"
+CONF_SSDP_ST = "ssdp_st"
+CONF_DEVICE_TYPE = "deviceType"
+CONF_DEVICE_MODEL = "model"
+CONF_MANUFACTURER = "manufacturer"
+CONF_MANUFACTURER_URL = "manufacturerURL"
+CONF_UDN = "UDN"
+CONF_WORKER_COUNT = "command_worker_count"
+CONF_GENERATE_EVENTS = "generate_events"
+CONF_DISCOVERY_BY_ACTIVATION = "discovery_by_activation"
+CONF_PARENT_ID = "parent_id"
+CONF_WHO = "who"
+CONF_WHERE = "where"
+CONF_BUS_INTERFACE = "interface"
+CONF_ZONE = "zone"
+CONF_DIMMABLE = "dimmable"
+CONF_GATEWAY = "gateway"
+CONF_DEVICE_CLASS = "class"
+CONF_INVERTED = "inverted"
+CONF_ADVANCED_SHUTTER = "advanced"
+CONF_HEATING_SUPPORT = "heat"
+CONF_COOLING_SUPPORT = "cool"
+CONF_FAN_SUPPORT = "fan"
+CONF_STANDALONE = "standalone"
+CONF_CENTRAL = "central"
+CONF_SHORT_PRESS = "pushbutton_short_press"
+CONF_SHORT_RELEASE = "pushbutton_short_release"
+CONF_LONG_PRESS = "pushbutton_long_press"
+CONF_LONG_RELEASE = "pushbutton_long_release"
+
+# Minimum delay (in seconds) enforced between consecutive commands sent on the
+# command session. Bursts of many status requests (e.g. after an event
+# session reconnect triggers a re-poll of all entities) can be sent to the
+# gateway faster than it is able to relay them onto the physical OpenWebNet
+# bus, causing it to reply with NACK for every queued message. Pacing the
+# sender avoids overwhelming the gateway.
+SEND_THROTTLE_DELAY = 0.1
+
+# The F418U2 (and other OpenWebNet gateways) silently close command sessions
+# that have been idle for a while (observed around 90-120 seconds). Reusing
+# such a session results in a "0 bytes read" failure on the next write. To
+# avoid hitting that failure path, we proactively recycle the command session
+# if it has been idle for longer than this many seconds.
+COMMAND_SESSION_IDLE_TIMEOUT = 60
+

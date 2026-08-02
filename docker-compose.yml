@@ -1,0 +1,17 @@
+version: '3'
+services:
+  homeassistant:
+    container_name: homeassistant-dev
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      # Mount project directory as custom components
+      - ./custom_components:/config/custom_components
+      # Mount Home Assistant configuration
+      - ./config:/config
+      # Storage directory for persistent data
+      - ./ha_data:/config/.storage
+    environment:
+      - TZ=Europe/Rome
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
