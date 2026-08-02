@@ -10,7 +10,7 @@ jobs:
   validate:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v2"
+      - uses: "actions/checkout@v4"
       - name: Skip HACS validation on private repos
         if: ${{ github.event.repository.private }}
         run: echo "Repository is private. Skipping HACS action checks that require public raw file access."
@@ -23,4 +23,4 @@ jobs:
           category: "integration"
           repository: ${{ github.repository }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: "description topics"
+          ignore: "description topics brands"
