@@ -327,7 +327,15 @@ class MyHOMEGatewayHandler:
         if int(zone) <= 0:
             return None
 
-        return where
+        if zone != where:
+            LOGGER.debug(
+                "Climate discovery: raw WHERE `%s` parsed to zone `%s` "
+                "(channel/suffix discarded).",
+                where,
+                zone,
+            )
+
+        return zone
 
     async def discover_devices(
         self,
@@ -1031,7 +1039,7 @@ class MyHOMEGatewayHandler:
 
     async def send(self, message: OWNCommand):
         workers_alive = [w for w in self.sending_workers if not w.done()]
-        LOGGER.warning(
+        LOGGER.debug(
             "%s [DIAG] send() called for `%s` — queue size: %s, workers alive: %s/%s",
             self.log_id,
             message,
