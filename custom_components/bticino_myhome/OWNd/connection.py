@@ -767,7 +767,7 @@ class OWNCommandSession(OWNSession):
 
             if resulting_message.is_nack():
                 if attempt <= 2:
-                    self._logger.error(
+                    self._logger.warning(
                         "%s Could not send message `%s`. Retrying (%d)...", self._gateway.log_id, message,
                         attempt
                     )

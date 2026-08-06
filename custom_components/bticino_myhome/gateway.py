@@ -299,10 +299,22 @@ class MyHOMEGatewayHandler:
 
     @staticmethod
     def _extract_energy_where(message: OWNEnergyEvent) -> str | None:
-        """Extract WHERE for energy events."""
+        """Extract WHERE for energy events.
+
+        OWNEnergyEvent.where returns the raw WHERE field, which for power/
+        energy messages is a leading type digit ('5' or '7') glued to the
+        actual sensor number (e.g. '588' for sensor '88') - the message
+        class itself strips this internally via self._where[1:] to get
+        self._sensor, but doesn't expose that as a public property. Without
+        stripping it here too, discovery would store the compound value as
+        the sensor's address, producing the same kind of malformed-WHERE
+        bug fixed for climate/light/cover repoll.
+        """
         where = getattr(message, "where", None)
         if where is not None:
             where = str(where)
+            if where and where[0] in ("5", "7") and len(where) > 1:
+                return where[1:]
             if where:
                 return where
 
@@ -1031,6 +1043,23 @@ class MyHOMEGatewayHandler:
         # Wake sender workers blocked on queue.get().
         for _ in self.sending_workers:
             await self.send_buffer.put(None)
+
+        # Wait for sender workers to actually finish (and close their
+        # command session) before returning, so a quick reload doesn't
+        # start a new command session while the old one is still being
+        # torn down - the gateway only tolerates one at a time.
+        if self.sending_workers:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*self.sending_workers, return_exceptions=True),
+                    timeout=10,
+                )
+            except asyncio.TimeoutError:
+                LOGGER.warning(
+                    "%s Sender workers did not shut down within timeout; "
+                    "proceeding with unload anyway.",
+                    self.log_id,
+                )
 
         if self.listening_worker is not None and not self.listening_worker.done():
             self.listening_worker.cancel()
