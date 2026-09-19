@@ -12,6 +12,8 @@ from homeassistant.const import (
     CONF_MAC,
 )
 
+from homeassistant.helpers.event import async_call_later
+
 from .OWNd.message import (
     OWNAutomationEvent,
     OWNAutomationCommand,
@@ -33,6 +35,13 @@ from .const import (
 from .myhome_device import MyHOMEEntity
 from .gateway import MyHOMEGatewayHandler
 
+# Fallback timeout (seconds): if a cover reports opening/closing but no
+# follow-up event (stop/position) arrives within this window, actively
+# request a status update instead of staying stuck forever. This integration
+# is fully push-driven (should_poll=False), so a single dropped bus event
+# would otherwise leave the entity stuck on "opening"/"closing" indefinitely.
+COVER_MOVEMENT_TIMEOUT = 150
+
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     if PLATFORM not in hass.data[DOMAIN][config_entry.data[CONF_MAC]][CONF_PLATFORMS]:
@@ -49,10 +58,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             where=_configured_covers[_cover][CONF_WHERE],
             interface=_configured_covers[_cover][CONF_BUS_INTERFACE] if CONF_BUS_INTERFACE in _configured_covers[_cover] else None,
             name=_configured_covers[_cover][CONF_NAME],
-            entity_name=_configured_covers[_cover][CONF_ENTITY_NAME],
+            entity_name=_configured_covers[_cover].get(CONF_ENTITY_NAME),
             advanced=_configured_covers[_cover][CONF_ADVANCED_SHUTTER],
             manufacturer=_configured_covers[_cover][CONF_MANUFACTURER],
-            model=_configured_covers[_cover][CONF_DEVICE_MODEL],
+            model=_configured_covers[_cover].get(CONF_DEVICE_MODEL),
             gateway=hass.data[DOMAIN][config_entry.data[CONF_MAC]][CONF_ENTITY],
         )
         _covers.append(_cover)
@@ -121,6 +130,8 @@ class MyHOMECover(MyHOMEEntity, CoverEntity):
         self._attr_is_closing = None
         self._attr_is_closed = None
 
+        self._movement_timeout_cancel = None
+
     async def async_update(self):
         """Update the entity.
 
@@ -160,4 +171,40 @@ class MyHOMECover(MyHOMEEntity, CoverEntity):
         if message.current_position is not None:
             self._attr_current_cover_position = message.current_position
 
+        if self._movement_timeout_cancel is not None:
+            self._movement_timeout_cancel()
+            self._movement_timeout_cancel = None
+
+        if self._attr_is_opening or self._attr_is_closing:
+            self._movement_timeout_cancel = async_call_later(
+                self.hass, COVER_MOVEMENT_TIMEOUT, self._async_movement_timeout
+            )
+
         self.async_schedule_update_ha_state()
+
+    async def _async_movement_timeout(self, _now):
+        """Recover if no stop/position event arrived after reporting movement.
+
+        Some BTicino actuators occasionally fail to deliver the final
+        `*2*0*<where>##` stop event on the bus. Since this integration is
+        fully push-driven (should_poll=False), a dropped event would
+        otherwise leave the entity stuck on "opening"/"closing" forever.
+        As a fallback, actively request a fresh status.
+        """
+        self._movement_timeout_cancel = None
+        LOGGER.warning(
+            "%s Cover %s still reporting %s after %ss with no update, requesting status.",
+            self._gateway_handler.log_id,
+            self._where,
+            "opening" if self._attr_is_opening else "closing",
+            COVER_MOVEMENT_TIMEOUT,
+        )
+        await self._gateway_handler.send_status_request(
+            OWNAutomationCommand.status(self._full_where)
+        )
+
+    async def async_will_remove_from_hass(self):
+        """Cancel any pending movement-timeout timer on entity removal."""
+        if self._movement_timeout_cancel is not None:
+            self._movement_timeout_cancel()
+            self._movement_timeout_cancel = None
