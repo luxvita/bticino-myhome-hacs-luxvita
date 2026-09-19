@@ -4,6 +4,70 @@ All notable changes to this fork are documented here. Based on
 [Léo's `bticino-myhome-hacs-byLeo`](https://github.com/llellouc/bticino-myhome-hacs-byLeo)
 — see `CREDITS.md`.
 
+## 1.3.0
+
+Hardening pass driven by a real-world install (F418U2 gateway, ~60 devices
+across lights, covers and heating zones), aimed at forward compatibility
+with future Home Assistant releases (defensive access instead of direct
+key lookups, so a future core/HA change to the entity-storage shape or a
+partially-migrated config entry degrades gracefully instead of crashing
+the whole integration) as well as day-to-day reliability.
+
+### Fixed
+
+- **`KeyError` crashes on optional config keys.** `light.py`, `cover.py`
+  and `button.py` read `CONF_ENTITY_NAME` and `CONF_DEVICE_MODEL` with
+  direct dict indexing (`config[KEY]`), even though both are optional
+  schema keys. Any device configured without them crashed setup. Switched
+  to `.get(KEY)`. Same issue in `myhome_device.py` and `button.py`'s
+  enable/disable command entities, which indexed `CONF_ENTITIES` directly
+  in `async_added_to_hass`/`async_will_remove_from_hass`/`async_press` —
+  now uses `.setdefault(...)`/`.get(...)` so a device dict that hasn't
+  had `CONF_ENTITIES` populated yet no longer raises.
+- **Covers could get stuck on "opening"/"closing" forever.** This
+  integration is fully push-driven (`should_poll=False`); if the gateway
+  drops the final `*2*0*<where>##` stop event on the bus, the cover
+  entity never got another update. Added a 150s self-healing timeout
+  (`COVER_MOVEMENT_TIMEOUT`) per cover: if no follow-up event arrives
+  while a cover reports movement, the integration now actively requests a
+  fresh status instead of leaving the entity stuck.
+- **Energy/power discovery stored a malformed WHERE.** `OWNEnergyEvent`
+  messages carry a leading type digit (`5`/`7`) glued to the actual sensor
+  number (e.g. `588` for sensor `88`); `_extract_energy_where()` wasn't
+  stripping it, so newly discovered energy sensors got the wrong address —
+  the same class of bug already fixed for climate/light/cover repoll in
+  1.1.0. Climate discovery WHERE parsing was tightened the same way,
+  logging when a raw WHERE differs from the parsed zone.
+- **`close_listener` race on quick reload.** Unloading the gateway could
+  return before its sender workers had actually finished and closed their
+  command session, so a fast reload risked opening a new command session
+  while the old one was still being torn down — something the gateway
+  itself doesn't tolerate. Unload now waits (up to 10s) for the sender
+  workers to finish before proceeding.
+- **Schema validation instantiated every platform schema eagerly.**
+  `gateway_schema`'s `Optional(...)` entries called each platform schema
+  directly, so a gateway with, say, no `climate` devices could still
+  trip on an unrelated schema at load time. Wrapped each in a `lambda`
+  so they're only evaluated for platforms that are actually configured.
+
+### Changed
+
+- Downgraded two more routine log lines from `WARNING`/`ERROR` to
+  `DEBUG`/`WARNING`: the per-send `[DIAG]` queue/worker status line, and
+  the "Could not send message, retrying" line for the first two retry
+  attempts (an eventual NACK after all retries still logs as an error).
+  Neither is actionable on its own — they were drowning out real problems
+  in the log.
+
+### Added
+
+- Local brand icon/logo shipped inside the integration
+  (`custom_components/bticino_myhome/brand/`) so the device page shows
+  the BTicino logo without depending on the `home-assistant/brands`
+  repository being updated first. Repository icon/logo added for the
+  HACS listing itself.
+- CI: brands check skipped, `actions/checkout` bumped to v4.
+
 ## 1.1.0
 
 ### Fixed
