@@ -163,7 +163,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     entities_to_be_removed = []
     devices_to_be_removed = [
         device_entry.id
-        for device_entry in device_registry.devices.values()
+        for device_entry in device_registry.devices
         if entry.entry_id in device_entry.config_entries
     ]
 

@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from .gateway import MyHOMEGatewayHandler
 
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers import device_registry as dr
 from homeassistant.const import CONF_ENTITIES
 
 
@@ -45,8 +46,26 @@ class MyHOMEEntity(Entity):
             "name": name,
             "manufacturer": self._manufacturer,
             "model": self._model,
-            "via_device": (DOMAIN, self._gateway_handler.unique_id),
         }
+
+        # `via_device` (a (domain, identifier) tuple) is deprecated in favor of
+        # `via_device_id` (the gateway device's actual registry entry id), which
+        # is unambiguous per config entry. The gateway device is always created
+        # in __init__.py before platforms are forwarded, so it's already in the
+        # registry by the time entities are constructed here. Guarded with a
+        # try/except anyway: if that lookup ever fails, the entity should still
+        # be created (just without the "via device" link) rather than crash
+        # platform setup entirely.
+        try:
+            _gateway_device_id = dr.async_get_device_id_by_identifier(
+                hass,
+                (DOMAIN, self._gateway_handler.unique_id),
+                config_entry_id=self._gateway_handler.config_entry.entry_id,
+            )
+        except (LookupError, ValueError):
+            _gateway_device_id = None
+        if _gateway_device_id is not None:
+            self._attr_device_info["via_device_id"] = _gateway_device_id
 
     async def async_added_to_hass(self):
         """When entity is added to hass."""
