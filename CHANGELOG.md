@@ -4,6 +4,31 @@ All notable changes to this fork are documented here. Based on
 [Léo's `bticino-myhome-hacs-byLeo`](https://github.com/llellouc/bticino-myhome-hacs-byLeo)
 — see `CREDITS.md`.
 
+## 1.3.1
+
+Actually resolves the two `homeassistant.helpers.frame` deprecation warnings
+that HA 2026.8/2026.9 started emitting for this integration (both will hard
+**stop working** — not just warn — in HA 2027.8.0 / 2027.9.0 respectively).
+1.3.0 claimed "HA 2027 ready" prematurely; these were the real fixes for that.
+
+### Fixed
+
+- **Deprecated `via_device` parameter.** Every entity's `device_info` set
+  `"via_device": (DOMAIN, gateway.unique_id)` — the old `(domain, identifier)`
+  tuple form, deprecated because identifiers are only unique per config
+  entry, making the lookup ambiguous. `MyHOMEEntity.__init__` now resolves
+  the gateway's actual device-registry id via the new
+  `device_registry.async_get_device_id_by_identifier()` helper and sets
+  `via_device_id` instead. Affects every platform (light, cover, climate,
+  switch, binary_sensor, sensor, button), since they all build their
+  `device_info` through the shared `MyHOMEEntity` base class.
+- **Deprecated `device_registry.devices` mapping access.** The device/entity
+  pruning logic in `__init__.py` iterated `device_registry.devices.values()`
+  to find devices belonging to this config entry — `devices` is now a
+  read-only collection that only supports iteration and membership testing,
+  not dict-style `.values()`/`.get()`/`[...]`. Changed to
+  `for device_entry in device_registry.devices`.
+
 ## 1.3.0
 
 Hardening pass driven by a real-world install (F418U2 gateway, ~60 devices
