@@ -4,6 +4,25 @@ All notable changes to this fork are documented here. Based on
 [Léo's `bticino-myhome-hacs-byLeo`](https://github.com/llellouc/bticino-myhome-hacs-byLeo)
 — see `CREDITS.md`.
 
+## 1.3.2
+
+### Fixed
+
+- **Self-healing cover timeout (1.3.0) didn't actually heal.** After 150s
+  with no follow-up event, the timeout handler re-requested status
+  (`*#2*<where>##`) instead of sending a stop. For actuators without
+  end-of-travel feedback, that status request only ever returns the
+  *last motion command the gateway was told about* — not the real
+  physical position. If the stop event never reached the gateway either,
+  the status query just echoed back the same stale "opening"/"closing"
+  state, so the timeout re-armed itself and repeated every 150s
+  indefinitely (observed: 272 log warnings over 5 hours on covers that
+  were not physically stuck at all). The recovery action is now an
+  actual stop command instead of a status query - harmless if the cover
+  already finished moving (the overwhelmingly common case after 150s),
+  and it resets the gateway's own bookkeeping to "stopped", which comes
+  back as a proper event and actually clears the stuck state in HA.
+
 ## 1.3.1
 
 Actually resolves the two `homeassistant.helpers.frame` deprecation warnings

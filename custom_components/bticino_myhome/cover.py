@@ -189,18 +189,32 @@ class MyHOMECover(MyHOMEEntity, CoverEntity):
         `*2*0*<where>##` stop event on the bus. Since this integration is
         fully push-driven (should_poll=False), a dropped event would
         otherwise leave the entity stuck on "opening"/"closing" forever.
-        As a fallback, actively request a fresh status.
+
+        A plain status request (`*#2*<where>##`) does NOT help here: for
+        actuators without end-of-travel feedback, the gateway only ever
+        reports the *last motion command it was told about* (1=opening,
+        2=closing, 0=stopped), not the actual physical position. If the
+        stop event never reached the gateway either, querying status just
+        echoes back the same stale "opening"/"closing" state forever,
+        even though the cover has long finished moving - which is exactly
+        what was observed in practice (repeated warnings every 150s for
+        hours, on covers that were not physically stuck).
+        As a fallback, actively send a stop command instead: harmless if
+        the cover already finished moving (which is overwhelmingly the
+        common case after 150s - see COVER_MOVEMENT_TIMEOUT), and it
+        resets the gateway's own bookkeeping to "stopped", which comes
+        back as a proper event and clears the stuck state in HA too.
         """
         self._movement_timeout_cancel = None
         LOGGER.warning(
-            "%s Cover %s still reporting %s after %ss with no update, requesting status.",
+            "%s Cover %s still reporting %s after %ss with no update, sending stop to reset state.",
             self._gateway_handler.log_id,
             self._where,
             "opening" if self._attr_is_opening else "closing",
             COVER_MOVEMENT_TIMEOUT,
         )
-        await self._gateway_handler.send_status_request(
-            OWNAutomationCommand.status(self._full_where)
+        await self._gateway_handler.send(
+            OWNAutomationCommand.stop_shutter(self._full_where)
         )
 
     async def async_will_remove_from_hass(self):
