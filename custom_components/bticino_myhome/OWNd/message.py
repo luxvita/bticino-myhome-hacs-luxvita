@@ -515,7 +515,11 @@ class OWNLightingEvent(OWNEvent):
         return self._transition
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
+        # None for messages without an on/off state (WHAT=1000 translations,
+        # timer/PIR/illuminance/motion-timeout dimensions).
+        if self._state is None:
+            return None
         return 0 < self._state < 32
 
     @property

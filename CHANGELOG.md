@@ -4,6 +4,19 @@ All notable changes to this fork are documented here. Based on
 [Léo's `bticino-myhome-hacs-byLeo`](https://github.com/llellouc/bticino-myhome-hacs-byLeo)
 — see `CREDITS.md`.
 
+## 1.3.3
+
+### Fixed
+
+- **Sender worker crash on lighting messages without an on/off state.**
+  Status responses such as a timer, PIR-sensitivity, illuminance or
+  motion-timeout dimension (or a WHAT=1000 translation) leave the parsed
+  state as `None`, and `OWNLightingEvent.is_on` then raised
+  `TypeError: '<' not supported between instances of 'int' and 'NoneType'`
+  inside `light.handle_event`, killing the sender worker until it
+  reconnected. `is_on` now returns `None` for such messages, and the
+  light and switch handlers skip the on/off update instead of crashing.
+
 ## 1.3.2
 
 ### Fixed

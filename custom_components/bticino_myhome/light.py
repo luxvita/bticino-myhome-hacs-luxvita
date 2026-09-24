@@ -217,6 +217,8 @@ class MyHOMELight(MyHOMEEntity, LightEntity):
             self._gateway_handler.log_id,
             message.human_readable_log,
         )
+        if message.is_on is None:
+            return  # no on/off state in this message (e.g. timer/PIR dimension)
         self._attr_is_on = message.is_on
         if ColorMode.BRIGHTNESS in self._attr_supported_color_modes and message.brightness is not None:
             self._attr_brightness_pct = message.brightness

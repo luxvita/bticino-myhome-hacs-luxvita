@@ -157,6 +157,8 @@ class MyHOMESwitch(MyHOMEEntity, SwitchEntity):
                 self._gateway_handler.log_id,
                 message.human_readable_log,
             )
+        if message.is_on is None:
+            return  # no on/off state in this message (e.g. timer/PIR dimension)
         self._attr_is_on = message.is_on
         if self._off_icon is not None and self._on_icon is not None:
             self._attr_icon = self._on_icon if self._attr_is_on else self._off_icon
